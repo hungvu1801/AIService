@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="hero">
+    <div class="hero-kicker">Studio</div>
+    <h1>Pixel Art Video</h1>
+    <p>Drop a short clip, then Run. It restyles the video as pixel art on the same engine as Motion Transfer.</p>
+</section>
+
+<div class="banner">
+    Same job queue as Motion Transfer. One GPU job at a time.
+</div>
+
+<div class="studio-layout">
+    <div class="panel">
+        <h2>Input</h2>
+        <label class="dropzone dropzone-wide" id="videoDrop">
+            <input id="videoInput" type="file" accept="video/*">
+            <video id="videoPreview" class="preview" muted playsinline></video>
+            <div class="dropzone-empty" id="videoEmpty">
+                <strong>Source video</strong>
+                Drop a clip here, or click to browse
+            </div>
+        </label>
+    </div>
+
+    <aside class="panel run-card">
+        <h2>Run</h2>
+        <p class="hint">Uses the AnimateDiff workflow. Queue sits on this server until ComfyUI is free.</p>
+        <div class="run-summary">
+            Video: <strong id="videoStatus">not selected</strong>
+        </div>
+        <button class="btn btn-primary btn-lg" id="runBtn" type="button" disabled>Run</button>
+    </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', path='js/studio-pixel.js') }}"></script>
+{% endblock %}

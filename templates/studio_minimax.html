@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="hero">
+    <div class="hero-kicker">Studio</div>
+    <h1>MiniMax H3</h1>
+    <p>Image to video. Drop a start frame, describe the motion, then Run on the same ComfyUI queue.</p>
+</section>
+
+<div class="banner">
+    Same job queue as the other apps. Needs MiniMax H3 nodes and models on that ComfyUI.
+</div>
+
+<div class="studio-layout">
+    <div class="panel">
+        <h2>Start frame</h2>
+        <label class="dropzone dropzone-wide" id="imageDrop">
+            <input id="imageInput" type="file" accept="image/*">
+            <img id="imagePreview" class="preview" alt="Start frame preview">
+            <div class="dropzone-empty" id="imageEmpty">
+                <strong>First frame</strong>
+                Drop an image here, or click to browse
+            </div>
+        </label>
+        <div class="field" style="margin-top: 16px;">
+            <label for="promptInput">Prompt</label>
+            <textarea id="promptInput" maxlength="4000" placeholder="Describe the shot, motion, and style. Leave empty to use the workflow default."></textarea>
+        </div>
+    </div>
+
+    <aside class="panel run-card">
+        <h2>Run</h2>
+        <p class="hint">Uploads the still, injects it as the first frame, then submits MiniMaxH3ImageToVideo.</p>
+        <div class="run-summary">
+            Image: <strong id="imageStatus">not selected</strong>
+        </div>
+        <button class="btn btn-primary btn-lg" id="runBtn" type="button" disabled>Run</button>
+    </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', path='js/studio-minimax.js') }}"></script>
+{% endblock %}

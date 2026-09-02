@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if title %}{{ title }} · AI Dancing{% else %}AI Dancing{% endif %}</title>
+    <meta name="description" content="Turn a portrait and a dance clip into a new motion-transfer video.">
+    <meta name="theme-color" content="#0D1116">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/main.css') }}">
+    <link rel="icon" href="{{ url_for('static', path='icons/icon.svg') }}" type="image/svg+xml">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="site-header">
+            <div class="header-inner">
+                <a class="logo" href="{{ url_for('home') }}">
+                    <span class="logo-mark">AI</span>
+                    AI Dancing
+                </a>
+                <nav class="nav-links">
+                    <a href="{{ url_for('home') }}" class="{% if active == 'plaza' %}is-active{% endif %}">Apps</a>
+                    <a href="{{ url_for('studio_page') }}" class="{% if active == 'studio' %}is-active{% endif %}">Studio</a>
+                    <a href="{{ url_for('jobs_page') }}" class="{% if active == 'jobs' %}is-active{% endif %}">Jobs</a>
+                </nav>
+                <div class="header-actions">
+                    <div id="loggedOutNav">
+                        <a class="btn btn-text" href="{{ url_for('login_page') }}">Log in</a>
+                        <a class="btn btn-primary" href="{{ url_for('register_page') }}">Sign up</a>
+                    </div>
+                    <div id="loggedInNav" class="hidden">
+                        <a class="btn btn-text" href="{{ url_for('account_page') }}" id="accountBtn">Account</a>
+                        <button class="btn btn-ghost" type="button" id="logoutBtnHeader">Log out</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="page {% block page_class %}{% endblock %}">
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="site-footer">
+            © <span id="year"></span> AI Dancing · customer portal sketch
+        </footer>
+    </div>
+
+    <div id="toast" class="toast" role="status"></div>
+
+    <script>document.getElementById("year").textContent = new Date().getFullYear();</script>
+    <script type="module">
+        import { getCurrentUser, logout } from "/static/js/auth.js";
+
+        const loggedInNav = document.getElementById("loggedInNav");
+        const loggedOutNav = document.getElementById("loggedOutNav");
+        const accountBtn = document.getElementById("accountBtn");
+        const logoutBtn = document.getElementById("logoutBtnHeader");
+
+        const user = await getCurrentUser();
+        if (user) {
+            loggedInNav.classList.remove("hidden");
+            loggedOutNav.classList.add("hidden");
+            accountBtn.textContent = user.username;
+        }
+
+        logoutBtn.addEventListener("click", logout);
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

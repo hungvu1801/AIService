@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="hero">
+    <div class="hero-kicker">Studio</div>
+    <h1>Wan T2V</h1>
+    <p>Text to video. Describe the shot, then Run the 4-step Lightning graph already on this ComfyUI.</p>
+</section>
+
+<div class="banner">
+    Same job queue. One 14B UNET only, 640×384, 33 frames. After OOM, fully quit ComfyUI and start it with <code>--lowvram</code> (no <code>--highvram</code>).
+</div>
+
+<div class="studio-layout">
+    <div class="panel">
+        <h2>Prompt</h2>
+        <div class="field">
+            <label for="promptInput">Positive</label>
+            <textarea id="promptInput" class="prompt-tall" maxlength="16000" placeholder="Describe the scene, camera, motion, and style."></textarea>
+        </div>
+        <div class="field">
+            <label for="negativeInput">Negative (optional)</label>
+            <textarea id="negativeInput" maxlength="4000" placeholder="Leave empty unless you want a negative prompt."></textarea>
+        </div>
+    </div>
+
+    <aside class="panel run-card">
+        <h2>Run</h2>
+        <p class="hint">Injects your text into CLIP Text Encode, randomizes the sampler seed, then submits the API graph.</p>
+        <div class="run-summary">
+            Prompt: <strong id="promptStatus">empty</strong>
+        </div>
+        <button class="btn btn-primary btn-lg" id="runBtn" type="button" disabled>Run</button>
+    </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', path='js/studio-wan.js') }}"></script>
+{% endblock %}

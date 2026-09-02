@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="hero">
+    <div class="hero-kicker">History</div>
+    <h1>Your jobs</h1>
+    <p>Jobs for your account on this server. Processing means ComfyUI is rendering now.</p>
+</section>
+
+<div id="jobsEmpty" class="empty-state">
+    No jobs yet. Open Studio, pick an image and a dance clip, then hit Run.
+</div>
+
+<div id="jobsList" class="jobs-list hidden"></div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', path='js/jobs-page.js') }}"></script>
+{% endblock %}

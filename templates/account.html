@@ -1,0 +1,81 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="panel account-page">
+    <h1>Account</h1>
+    <div class="profile-head">
+        <img id="profileImage" src="/static/profile_pics/default.svg" alt="Profile picture">
+        <div>
+            <h2 id="displayUsername"></h2>
+            <p id="displayEmail"></p>
+        </div>
+    </div>
+
+    <h2>Update profile</h2>
+    <form id="updateProfileForm">
+        <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required minlength="1" maxlength="50">
+        </div>
+        <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Save profile</button>
+    </form>
+
+    <hr>
+
+    <h2>Profile picture</h2>
+    <img id="imagePreview" class="preview-circle" alt="Preview">
+    <div class="file-row">
+        <input type="file" id="pictureInput" accept="image/*">
+        <button type="button" class="btn btn-ghost" id="uploadPictureBtn" disabled>Upload</button>
+    </div>
+    <p class="help">JPEG, PNG, GIF, or WebP. Max 5MB. Needs S3 configured.</p>
+
+    <hr>
+
+    <h2>Change password</h2>
+    <form id="changePasswordForm">
+        <div class="field">
+            <label for="currentPassword">Current password</label>
+            <input type="password" id="currentPassword" name="current_password" required>
+        </div>
+        <div class="field">
+            <label for="newPassword">New password</label>
+            <input type="password" id="newPassword" name="new_password" required minlength="8">
+        </div>
+        <div class="field">
+            <label for="confirmNewPassword">Confirm new password</label>
+            <input type="password" id="confirmNewPassword" name="confirm_new_password" required minlength="8">
+        </div>
+        <button type="submit" class="btn btn-primary" id="changePasswordBtn">Change password</button>
+    </form>
+
+    <hr>
+
+    <button type="button" class="btn btn-ghost" id="logoutBtn">Log out</button>
+
+    <hr>
+
+    <div class="danger-box">
+        <h3>Danger zone</h3>
+        <p>Delete your account. This cannot be undone.</p>
+        <button type="button" class="btn btn-danger" id="openDeleteModal">Delete account</button>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="deleteAccountModal">
+    <div class="modal-card">
+        <h3>Delete account?</h3>
+        <p>This permanently removes your login. Jobs on the GPU engine are not deleted until you connect that backend.</p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="cancelDelete">Cancel</button>
+            <button type="button" class="btn btn-danger" id="confirmDeleteAccount">Delete</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', path='js/account.js') }}"></script>
+{% endblock %}

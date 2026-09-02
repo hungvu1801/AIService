@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+{% block page_class %}page-narrow{% endblock %}
+{% block content %}
+<div class="auth-card">
+    <h1>Log in</h1>
+    <p class="sub">Sign in to run Motion Transfer and see your jobs.</p>
+    <form id="loginForm">
+        <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="username" required autocomplete="email">
+        </div>
+        <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary">Log in</button>
+    </form>
+    <p class="auth-foot">
+        <a href="{{ url_for('forgot_password_page') }}">Forgot password?</a><br>
+        No account? <a href="{{ url_for('register_page') }}">Sign up</a>
+    </p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module">
+    import { getErrorMessage, showToast } from "/static/js/utils.js";
+    import { setToken, clearUserCache } from "/static/js/auth.js";
+
+    const loginForm = document.getElementById("loginForm");
+    loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(loginForm);
+        try {
+            const response = await fetch("/api/users/token", {
+                method: "POST",
+                body: formData,
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setToken(data.access_token);
+                clearUserCache();
+                const next = new URLSearchParams(window.location.search).get("next") || "/studio";
+                window.location.href = next;
+            } else {
+                const error = await response.json();
+                showToast(getErrorMessage(error), "error");
+            }
+        } catch {
+            showToast("Network error. Please try again.", "error");
+        }
+    });
+</script>
+{% endblock %}

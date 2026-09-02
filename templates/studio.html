@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="hero">
+    <div class="hero-kicker">Studio</div>
+    <h1>Motion Transfer</h1>
+    <p>Upload a portrait and a dance clip, then Run. This server queues the job and sends it to ComfyUI.</p>
+</section>
+
+<div class="banner">
+    Jobs are stored on this server, per account. ComfyUI is the GPU renderer at the URL in COMFYUI_BASE_URL.
+</div>
+
+<div class="studio-layout">
+    <div class="panel">
+        <h2>Inputs</h2>
+        <div class="input-grid">
+            <label class="dropzone" id="imageDrop">
+                <input id="imageInput" type="file" accept="image/*">
+                <img id="imagePreview" class="preview" alt="Portrait preview">
+                <div class="dropzone-empty" id="imageEmpty">
+                    <strong>Portrait image</strong>
+                    Front-facing photo, one person
+                </div>
+            </label>
+            <label class="dropzone" id="videoDrop">
+                <input id="videoInput" type="file" accept="video/*">
+                <video id="videoPreview" class="preview" muted playsinline></video>
+                <div class="dropzone-empty" id="videoEmpty">
+                    <strong>Dance video</strong>
+                    Short clip, the motion you want
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <aside class="panel run-card">
+        <h2>Run</h2>
+        <p class="hint">One GPU job at a time. You can queue more; they wait in order.</p>
+        <div class="run-summary">
+            Image: <strong id="imageStatus">not selected</strong><br>
+            Video: <strong id="videoStatus">not selected</strong>
+        </div>
+        <button class="btn btn-primary btn-lg" id="runBtn" type="button" disabled>Run</button>
+    </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', path='js/studio.js') }}"></script>
+{% endblock %}

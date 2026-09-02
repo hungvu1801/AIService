@@ -1,0 +1,313 @@
+{
+  "6": {
+    "inputs": {
+      "text": "\n  \"shot\": \n    \"composition\": \"动态广角镜头（28mm 等效镜头），采用 DJI Inspire 3 无人机搭载 X9-8K Air 摄影机拍摄。浅景深将焦点集中在两位战斗者身上，背景是壮丽的云海和天宫。构图上，娇小的飞天占据画面一角，与占据画面大部分空间的巨灵神形成强烈的体型与力量对比。\",\n    \"camera_motion\": \"高速的空中环绕运镜，镜头围绕着战斗的核心快速盘旋，并伴随着突然的推拉，以捕捉关键的攻击和闪避瞬间，营造出令人目眩的空战速度感和紧张感。\",\n    \"frame_rate\": \"60fps\",\n    \"film_grain\": \"纯净的数字画面，无胶片颗粒，以最清晰地展现丝绸的飘逸质感和神力的光影特效。\",\n    \"resolution\": \"8K HDR\",\n    \"focus\": \"先进的自动对焦系统，持续锁定在体型较小、移动更快的飞天美女身上。\"\n  ,\n  \"subject\": \n    \"description\": \"其一是一位26岁的东亚女性，拥有古典汉唐美女的精致面容，丹凤眼（phoenix eyes）中透露出不屈的战意和神圣的愤怒。她的身形修长而充满力量感。其二是中国神话中的巨灵神，身高三十米，青铜色的皮肤上刻满了古老的天界符文，面容粗犷如山岩，双目如熔金般燃烧，肌肉虬结，充满爆炸性的力量。\",\n    \"wardrobe\": \"美女身着一套华丽而飘逸的敦煌飞天服，由矿物绿、赭石黄、朱砂红等多层渐变色薄纱丝绸制成。两条数米长的赤色长绸飘带（celestial ribbons）从她的臂膀延伸出去，如同有生命一般随她的动作而飞舞。巨灵神则穿着简陋而厚重的青铜战甲，仅护住关键部位，赤裸着巨大的臂膀。\"\n  ,\n\n  \"scene\": \n    \"location\": \"中国的神话领域，昆仑仙山之上的天界。\",\n    \"time_of_day\": \"傍晚，魔幻时刻（Magic Hour）。\",\n    \"environment\": \"一个由翻涌的、被落日染成金紫色的云海构成的战场。远处可见悬浮在空中的、金碧辉煌的天宫楼阁轮廓。空气中充满了能量的涟漪和细碎的金色光尘。\"\n  ,\n  \"visual_details\": \n    \"action\": \"飞天美女利用她惊人的敏捷性和飘带的灵活性，像一只优雅的燕子在空中飞舞，躲避巨灵神势大力沉的攻击。此刻，巨灵神刚刚用他巨大的神斧劈开了一座云山，而飞天则利用这个间隙，操控她的两条赤色长绸飘带，如两条火龙般缠向巨灵神持斧的手臂。\",\n    \"props\": \"巨灵神手持一把巨大的、闪烁着雷电的双刃战斧（a colossal, double-headed battle axe）。飞天的长绸飘带既是她服装的一部分，也是她的武器。\"\n  ,\n  \"cinematography\": \n    \"lighting\": \"戏剧性的、低角度的落日余晖作为主光源。这道金色的光芒为两位战斗者勾勒出耀眼的轮廓光（rim light），突显了飞天丝绸的半透明质感和巨灵神肌肉的雄伟线条。云层反射的光芒则为阴影部分提供了柔和的补光。\",\n    \"tone\": \"史诗级、神话感、优雅与暴力的对撞。这是一场视觉上的芭蕾，融合了中国古典舞蹈的柔美与神话战争的宏大与残酷。\",\n  ,\n  \"color_palette\": \"高对比度、高饱和度的色彩方案。以落日的炽热金色和橙红色，以及天空高处的靛蓝色为主调。飞天服装的矿物色彩（绿、黄、红）与巨灵神深沉的青铜色形成鲜明对比，营造出强烈的视觉冲击力。\"\n",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "38",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "58",
+        0
+      ],
+      "vae": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "37": {
+    "inputs": {
+      "unet_name": "Wan2.2-T2V-A14B-4steps-250928-dyno-high-lightx2v.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "38": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "39": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "54": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "55": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "68",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3",
+    "_meta": {
+      "title": "ModelSamplingSD3"
+    }
+  },
+  "56": {
+    "inputs": {
+      "unet_name": "wan2.2_t2v_low_noise_14B_fp16.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "57": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 42,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": 2,
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "54",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "59",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "58": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 42,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 2,
+      "end_at_step": 4,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "55",
+        0
+      ],
+      "positive": [
+        "6",
+        0
+      ],
+      "negative": [
+        "7",
+        0
+      ],
+      "latent_image": [
+        "57",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced)"
+    }
+  },
+  "59": {
+    "inputs": {
+      "width": 1280,
+      "height": 720,
+      "length": 81,
+      "batch_size": 1
+    },
+    "class_type": "EmptyHunyuanLatentVideo",
+    "_meta": {
+      "title": "Empty HunyuanVideo 1.0 Latent"
+    }
+  },
+  "60": {
+    "inputs": {
+      "fps": 16,
+      "bit_depth": 8,
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "61": {
+    "inputs": {
+      "filename_prefix": "WanVideo2_2_T2V_Lightning",
+      "format": "mp4",
+      "codec": "h264",
+      "codec.encoding": "auto",
+      "fw_video_preview": "",
+      "video": [
+        "60",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "💾 Save Video"
+    }
+  },
+  "68": {
+    "inputs": {
+      "lora_name": "Wan22_A14B_T2V_LOW_Lightning_4steps_lora_250928_rank64_fp16.safetensors",
+      "strength_model": 1.0000000000000002,
+      "model": [
+        "56",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "71": {
+    "inputs": {
+      "model": "seedvr2_ema_3b_fp8_e4m3fn.safetensors",
+      "seed": 1063384247,
+      "new_resolution": 1280,
+      "batch_size": 5,
+      "images": [
+        "8",
+        0
+      ],
+      "block_swap_config": [
+        "72",
+        0
+      ],
+      "extra_args": [
+        "73",
+        0
+      ]
+    },
+    "class_type": "SeedVR2",
+    "_meta": {
+      "title": "SeedVR2 Video Upscaler"
+    }
+  },
+  "72": {
+    "inputs": {
+      "blocks_to_swap": 20,
+      "use_non_blocking": false,
+      "offload_io_components": false
+    },
+    "class_type": "SeedVR2BlockSwap",
+    "_meta": {
+      "title": "SeedVR2 BlockSwap Config"
+    }
+  },
+  "73": {
+    "inputs": {
+      "tiled_vae": true,
+      "vae_tile_size": 512,
+      "vae_tile_overlap": 64,
+      "preserve_vram": false,
+      "cache_model": false,
+      "enable_debug": false
+    },
+    "class_type": "SeedVR2ExtraArgs",
+    "_meta": {
+      "title": "SeedVR2 Extra Args"
+    }
+  },
+  "74": {
+    "inputs": {
+      "fps": 16,
+      "bit_depth": 8,
+      "images": [
+        "71",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "Create Video"
+    }
+  },
+  "75": {
+    "inputs": {
+      "filename_prefix": "WanVideo2_2_T2V_Lightning",
+      "format": "mp4",
+      "codec": "h264",
+      "codec.encoding": "auto",
+      "fw_video_preview": "",
+      "video": [
+        "74",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "💾 Save Video"
+    }
+  }
+}
