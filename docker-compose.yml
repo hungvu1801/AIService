@@ -4,15 +4,15 @@ services:
     container_name: aidancing-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: aidancing
-      POSTGRES_PASSWORD: aidancing
-      POSTGRES_DB: aidancing
+      POSTGRES_USER: bloguser
+      POSTGRES_PASSWORD: blogpass
+      POSTGRES_DB: blog
     ports:
       - "5432:5432"
     volumes:
       - aidancing_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aidancing -d aidancing"]
+      test: ["CMD-SHELL", "pg_isready -U bloguser -d blog"]
       interval: 5s
       timeout: 5s
       retries: 10

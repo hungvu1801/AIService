@@ -15,13 +15,13 @@ Pages still load if Postgres or ComfyUI is down. Register, login, and Run need P
 
 ## What you need
 
-| Piece | Where | Required for |
-|---|---|---|
-| Python **3.12+** | App PC | Always |
-| PostgreSQL | App PC via Docker Compose (or any host in `DATABASE_URL`) | Login and jobs |
-| This repo + `.env` | App PC | Always |
-| ComfyUI + models | GPU PC | Running studio jobs |
-| Tailscale + SSH tunnel | Both PCs | Reaching ComfyUI from the app PC |
+| Piece                  | Where                                                     | Required for                     |
+| ---------------------- | --------------------------------------------------------- | -------------------------------- |
+| Python **3.12+**       | App PC                                                    | Always                           |
+| PostgreSQL             | App PC via Docker Compose (or any host in `DATABASE_URL`) | Login and jobs                   |
+| This repo + `.env`     | App PC                                                    | Always                           |
+| ComfyUI + models       | GPU PC                                                    | Running studio jobs              |
+| Tailscale + SSH tunnel | Both PCs                                                  | Reaching ComfyUI from the app PC |
 
 GPU wiring (OpenSSH, `gpu-comfy`, `administrators_authorized_keys`) is in [docs/tailscale-two-machines.md](docs/tailscale-two-machines.md).
 
@@ -30,21 +30,19 @@ GPU wiring (OpenSSH, `gpu-comfy`, `administrators_authorized_keys`) is in [docs/
 ## 1. Get the code
 
 ```bat
-cd F:\Hung\MyProjects
-git clone <this-repo-url> FE_AIDancing
-cd FE_AIDancing
+git clone https://github.com/hungvu1801/AIService.git .
+cd <repo-directory>
 ```
 
-Or use the folder you already have.
+`<repo-directory>` is the folder Git created (or the copy of the project you already have). All later commands run from there.
 
 ---
 
 ## 2. Python environment
 
-PowerShell on the **app PC**:
+PowerShell on the **app PC**, from `<repo-directory>`:
 
 ```bat
-cd F:\Hung\MyProjects\FE_AIDancing
 python --version
 ```
 
@@ -57,10 +55,9 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Later sessions only need:
+Later sessions, from the same folder:
 
 ```bat
-cd F:\Hung\MyProjects\FE_AIDancing
 .\.venv\Scripts\activate
 ```
 
@@ -77,16 +74,16 @@ docker compose ps
 
 Wait until `aidancing-postgres` is healthy. This starts Postgres 16 on `127.0.0.1:5432` with:
 
-| | |
-|---|---|
-| Database | `aidancing` |
-| User / password | `aidancing` / `aidancing` |
-| Data volume | Docker volume `aidancing_pgdata` |
+|                 |                                  |
+| --------------- | -------------------------------- |
+| Database        | `blog`                           |
+| User / password | `bloguser` / `blogpass`          |
+| Data volume     | Docker volume `aidancing_pgdata` |
 
 Match `.env`:
 
 ```env
-DATABASE_URL=postgresql+psycopg://aidancing:aidancing@127.0.0.1:5432/aidancing
+DATABASE_URL=postgresql+psycopg://bloguser:blogpass@localhost/blog
 ```
 
 Tables are created on app startup (`create_all`). You do not run Alembic for a first boot.
@@ -108,7 +105,7 @@ If Postgres is stopped, the plaza still opens and the log says `Database not rea
 
 If port 5432 is already in use (a local Postgres install), either stop that service or change the left-hand port in `docker-compose.yml` (for example `"5433:5432"`) and the port in `DATABASE_URL`.
 
-Native Postgres without Docker still works: create user `aidancing` and database `aidancing`, then point `DATABASE_URL` at that instance.
+Native Postgres without Docker still works: create user `bloguser` and database `blog`, then point `DATABASE_URL` at that instance.
 
 ---
 
@@ -122,7 +119,7 @@ Edit `.env`. Minimum:
 
 ```env
 SECRET_KEY=replace-with-a-long-random-string
-DATABASE_URL=postgresql+psycopg://aidancing:aidancing@127.0.0.1:5432/aidancing
+DATABASE_URL=postgresql+psycopg://bloguser:blogpass@localhost/blog
 FRONTEND_URL=http://localhost:8000
 
 COMFYUI_BASE_URL=http://127.0.0.1:8188
@@ -190,12 +187,12 @@ First-time SSH setup is the whole of [docs/tailscale-two-machines.md](docs/tails
 
 ## Studio apps
 
-| Plaza | Path | Job API | Workflow file |
-|---|---|---|---|
-| Motion Transfer | `/studio` | `POST /api/jobs` | `workflows/motion_transfer.json` |
-| Pixel Art Video | `/studio/pixel` | `POST /api/jobs/animatediff` | `workflows/animatediff.json` |
-| MiniMax H3 | `/studio/minimax` | `POST /api/jobs/minimax` | `workflows/minimaxH3.json` |
-| Wan T2V | `/studio/wan` | `POST /api/jobs/wan` | `workflows/motion_transfer_2.json` |
+| Plaza           | Path              | Job API                      | Workflow file                      |
+| --------------- | ----------------- | ---------------------------- | ---------------------------------- |
+| Motion Transfer | `/studio`         | `POST /api/jobs`             | `workflows/motion_transfer.json`   |
+| Pixel Art Video | `/studio/pixel`   | `POST /api/jobs/animatediff` | `workflows/animatediff.json`       |
+| MiniMax H3      | `/studio/minimax` | `POST /api/jobs/minimax`     | `workflows/minimaxH3.json`         |
+| Wan T2V         | `/studio/wan`     | `POST /api/jobs/wan`         | `workflows/motion_transfer_2.json` |
 
 The GPU ComfyUI must have the **nodes and model files** each graph names. MiniMax H3 needs ComfyUI **0.30+**. Wan T2V currently remaps missing Lightning files and uses a smaller single-UNET graph so it can fit ~32 GB VRAM.
 
@@ -216,15 +213,15 @@ Jobs: `/jobs` (poll, download, cancel). One job at a time.
 
 ## If something fails
 
-| What you see | What to do |
-|---|---|
-| `can't open file '...\\run'` | Use `python main.py` |
-| Home page 500 / `jobs_page` | App routes; restart after pulling latest `main.py` |
-| Login timeout / `connection timeout expired` | `docker compose up -d`; check `DATABASE_URL` |
-| Job queued forever | Tunnel + ComfyUI; `curl http://127.0.0.1:8188/system_stats` on the app PC |
-| ComfyUI `missing_node_type` | That node is not installed on the GPU (or ComfyUI is too old) |
-| ComfyUI `value_not_in_list` | Model filename is not in `models/` on the GPU |
-| CUDA OOM | Restart ComfyUI with `--lowvram`; quit the process fully after OOM |
+| What you see                                 | What to do                                                                |
+| -------------------------------------------- | ------------------------------------------------------------------------- |
+| `can't open file '...\\run'`                 | Use `python main.py`                                                      |
+| Home page 500 / `jobs_page`                  | App routes; restart after pulling latest `main.py`                        |
+| Login timeout / `connection timeout expired` | `docker compose up -d`; check `DATABASE_URL`                              |
+| Job queued forever                           | Tunnel + ComfyUI; `curl http://127.0.0.1:8188/system_stats` on the app PC |
+| ComfyUI `missing_node_type`                  | That node is not installed on the GPU (or ComfyUI is too old)             |
+| ComfyUI `value_not_in_list`                  | Model filename is not in `models/` on the GPU                             |
+| CUDA OOM                                     | Restart ComfyUI with `--lowvram`; quit the process fully after OOM        |
 
 ---
 
