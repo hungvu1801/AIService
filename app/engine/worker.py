@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -38,24 +39,68 @@ def job_upload_dir(job_id: str) -> Path:
 async def process_job(job_id: str) -> None:
     async with AsyncSessionLocal() as db:
         job = await db.get(Job, job_id)
-        if job is None or job.status != "queued":
+        if job is None:
             return
-        job.status = "processing"
-        await db.commit()
 
         dest = data_root() / "outputs" / job_id
         try:
+            if job.status == "processing" and job.prompt_id:
+                logger.info("Resuming job %s prompt %s", job_id, job.prompt_id)
+                entry = await comfy.get_history_entry(job.prompt_id)
+                if entry is None:
+                    probed = await comfy.probe_saved_video(
+                        comfy.prefer_for_tool(job.tool)
+                    )
+                    if probed is None:
+                        raise RuntimeError(
+                            "ComfyUI result was lost after a restart. Retry the job."
+                        )
+                    dest = dest.with_suffix(Path(probed["filename"]).suffix or ".mp4")
+                    await comfy.download_file(
+                        probed["filename"],
+                        probed.get("subfolder", ""),
+                        probed.get("type", "output"),
+                        dest,
+                    )
+                    output = dest
+                else:
+                    output = await comfy.download_output(
+                        job.prompt_id,
+                        dest,
+                        prefer_prefixes=comfy.prefer_for_tool(job.tool),
+                    )
+                await db.refresh(job)
+                if job.status == "cancelled":
+                    return
+                job.output_path = str(output)
+                job.status = "done"
+                job.error = None
+                await db.commit()
+                logger.info("Job %s done → %s", job_id, output)
+                return
+
+            if job.status == "processing" and not job.prompt_id:
+                logger.warning("Job %s was interrupted before submit; requeue", job_id)
+                job.status = "queued"
+                await db.commit()
+
+            if job.status != "queued":
+                return
+
+            job.status = "processing"
+            await db.commit()
+
             await comfy.free_memory()
             if job.tool == "animatediff":
                 video_name = await comfy.upload_input(Path(job.video_path))
-                workflow = inject_animatediff(video_name)
+                workflow = await asyncio.to_thread(inject_animatediff, video_name)
             elif job.tool == "minimax":
                 image_name = await comfy.upload_input(Path(job.image_path))
                 prompt = ""
                 prompt_file = Path(job.video_path)
                 if prompt_file.is_file():
                     prompt = prompt_file.read_text(encoding="utf-8")
-                workflow = inject_minimax(image_name, prompt)
+                workflow = await asyncio.to_thread(inject_minimax, image_name, prompt)
             elif job.tool == "wan_t2v":
                 prompt = ""
                 prompt_file = Path(job.video_path)
@@ -65,11 +110,45 @@ async def process_job(job_id: str) -> None:
                 negative_file = prompt_file.with_name("negative.txt")
                 if negative_file.is_file():
                     negative = negative_file.read_text(encoding="utf-8")
-                workflow = inject_wan_t2v(prompt, negative)
+                length = None
+                length_file = prompt_file.with_name("length.txt")
+                if length_file.is_file():
+                    try:
+                        length = int(length_file.read_text(encoding="utf-8").strip())
+                    except ValueError:
+                        length = None
+                width = height = None
+                size_file = prompt_file.with_name("size.txt")
+                if size_file.is_file():
+                    raw = size_file.read_text(encoding="utf-8").strip().lower()
+                    if "x" in raw:
+                        try:
+                            width_s, height_s = raw.split("x", 1)
+                            width, height = int(width_s), int(height_s)
+                        except ValueError:
+                            width = height = None
+                seconds = None
+                seconds_file = prompt_file.with_name("seconds.txt")
+                if seconds_file.is_file():
+                    try:
+                        seconds = int(seconds_file.read_text(encoding="utf-8").strip())
+                    except ValueError:
+                        seconds = None
+                workflow = await asyncio.to_thread(
+                    inject_wan_t2v,
+                    prompt,
+                    negative,
+                    length,
+                    width,
+                    height,
+                    seconds,
+                )
             elif job.tool == "motion_transfer":
                 image_name = await comfy.upload_input(Path(job.image_path))
                 video_name = await comfy.upload_input(Path(job.video_path))
-                workflow = inject_motion(load_workflow(), image_name, video_name)
+                workflow = await asyncio.to_thread(
+                    inject_motion, load_workflow(), image_name, video_name
+                )
             else:
                 raise ValueError(f"Unknown job tool: {job.tool}")
 
@@ -98,11 +177,15 @@ async def process_job(job_id: str) -> None:
 
 
 async def next_queued_job_id(db: AsyncSession) -> str | None:
-    processing = await db.scalar(
-        select(func.count()).select_from(Job).where(Job.status == "processing")
+    result = await db.execute(
+        select(Job.id)
+        .where(Job.status == "processing")
+        .order_by(Job.updated_at.asc())
+        .limit(1)
     )
-    if processing:
-        return None
+    processing_id = result.scalar_one_or_none()
+    if processing_id:
+        return processing_id
     result = await db.execute(
         select(Job.id)
         .where(Job.status == "queued")

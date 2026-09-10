@@ -3,7 +3,11 @@ import { getErrorMessage, showToast } from "/static/js/utils.js";
 
 const promptInput = document.getElementById("promptInput");
 const negativeInput = document.getElementById("negativeInput");
+const durationInput = document.getElementById("durationInput");
+const sizeInput = document.getElementById("sizeInput");
 const promptStatus = document.getElementById("promptStatus");
+const durationStatus = document.getElementById("durationStatus");
+const sizeStatus = document.getElementById("sizeStatus");
 const runBtn = document.getElementById("runBtn");
 
 function promptPreview(text) {
@@ -16,10 +20,14 @@ function syncRunState() {
   const ready = Boolean(promptInput.value.trim());
   runBtn.disabled = !ready;
   promptStatus.textContent = promptPreview(promptInput.value);
+  durationStatus.textContent = `${durationInput.value} seconds`;
+  sizeStatus.textContent = sizeInput.value.replace("x", " × ");
 }
 
 promptInput.addEventListener("input", syncRunState);
 negativeInput.addEventListener("input", syncRunState);
+durationInput.addEventListener("change", syncRunState);
+sizeInput.addEventListener("change", syncRunState);
 
 runBtn.addEventListener("click", async () => {
   const user = await getCurrentUser();
@@ -33,6 +41,8 @@ runBtn.addEventListener("click", async () => {
   const body = new FormData();
   body.append("prompt", prompt);
   body.append("negative", negativeInput.value.trim());
+  body.append("seconds", durationInput.value);
+  body.append("size", sizeInput.value);
   runBtn.disabled = true;
   runBtn.textContent = "Queuing…";
   try {

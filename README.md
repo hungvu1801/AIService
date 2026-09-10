@@ -86,7 +86,7 @@ Match `.env`:
 DATABASE_URL=postgresql+psycopg://bloguser:blogpass@localhost/blog
 ```
 
-Tables are created on app startup (`create_all`). You do not run Alembic for a first boot.
+Tables are created on app startup (`create_all`), including `apps` (plaza metadata). Missing app rows are seeded once by slug; later edits in the database are kept. You do not run Alembic for a first boot.
 
 Useful commands:
 

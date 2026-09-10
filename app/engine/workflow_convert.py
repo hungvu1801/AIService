@@ -22,10 +22,14 @@ def _comfy_base() -> str:
 def _fetch_object_info() -> dict:
     global _object_info_cache
     if _object_info_cache is None:
-        with httpx.Client(timeout=15) as client:
-            raw = client.get(f"{_comfy_base()}/object_info")
-            raw.raise_for_status()
-            _object_info_cache = raw.json()
+        try:
+            with httpx.Client(timeout=3.0) as client:
+                raw = client.get(f"{_comfy_base()}/object_info")
+                raw.raise_for_status()
+                _object_info_cache = raw.json()
+        except Exception as exc:
+            logger.warning("ComfyUI object_info unavailable: %s", exc)
+            return {}
     return _object_info_cache
 
 
@@ -294,37 +298,115 @@ def ui_to_api_format(ui_wf: dict) -> dict:
     return api
 
 
-def sanitize_model_paths(wf: dict) -> None:
-    loader_types = {
-        "WanVideoModelLoader",
-        "WanVideoLoraSelectMulti",
-        "UNETLoader",
-        "CheckpointLoaderSimple",
-        "VAELoader",
-        "CLIPLoader",
-        "LoraLoader",
-        "LoRALoader",
-    }
-    model_keys = {
-        "model",
-        "unet_name",
-        "ckpt_name",
-        "vae_name",
-        "clip_name",
-        "lora_name",
-    }
+def _combo_choices(spec: object) -> list[str]:
+    if not isinstance(spec, (list, tuple)) or not spec:
+        return []
+    first = spec[0]
+    if isinstance(first, list):
+        return [item for item in first if isinstance(item, str)]
+    if first == "COMBO" and len(spec) > 1 and isinstance(spec[1], dict):
+        options = spec[1].get("options") or spec[1].get("choices") or []
+        return [item for item in options if isinstance(item, str)]
+    return []
+
+
+def _norm_model_path(value: str) -> str:
+    return value.replace("\\", "/").strip().lower()
+
+
+def _match_combo_value(requested: str, choices: list[str]) -> str | None:
+    if requested in choices:
+        return requested
+    want = _norm_model_path(requested)
+    for choice in choices:
+        if _norm_model_path(choice) == want:
+            return choice
+    want_name = want.rsplit("/", 1)[-1]
+    named = [
+        choice
+        for choice in choices
+        if _norm_model_path(choice).rsplit("/", 1)[-1] == want_name
+    ]
+    if len(named) == 1:
+        return named[0]
+    return None
+
+
+def resolve_combo_values(wf: dict, object_info: dict | None = None) -> None:
+    """Rewrite combo widgets to the exact strings this ComfyUI lists.
+
+    Windows ComfyUI stores subfolder models as ``Wan22Animate\\file.safetensors``.
+    Exported graphs often use ``Wan22Animate/file.safetensors``. Validation is
+    an exact match, so a slash mismatch drops the video output nodes.
+    """
+    if object_info is None:
+        try:
+            object_info = _fetch_object_info()
+        except Exception:
+            object_info = {}
+
     for node in wf.values():
-        if not isinstance(node, dict) or node.get("class_type") not in loader_types:
+        if not isinstance(node, dict):
             continue
-        inputs = node.get("inputs", {})
-        for key, value in list(inputs.items()):
-            if isinstance(value, str) and "\\" in value and key in model_keys:
-                inputs[key] = value.replace("\\", "/")
+        class_type = node.get("class_type", "")
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict) or not class_type:
+            continue
+        node_input = (object_info.get(class_type) or {}).get("input") or {}
+        for section in ("required", "optional"):
+            for name, spec in (node_input.get(section) or {}).items():
+                current = inputs.get(name)
+                if not isinstance(current, str):
+                    continue
+                choices = _combo_choices(spec)
+                if not choices:
+                    continue
+                matched = _match_combo_value(current, choices)
+                if matched and matched != current:
+                    logger.info(
+                        "Combo %s.%s remapped %r -> %r",
+                        class_type,
+                        name,
+                        current,
+                        matched,
+                    )
+                    inputs[name] = matched
+
+
+def assert_nodes_installed(wf: dict) -> None:
+    try:
+        object_info = _fetch_object_info()
+    except Exception as exc:
+        raise RuntimeError(f"Cannot reach ComfyUI: {exc}") from exc
+    missing = sorted(
+        {
+            class_type
+            for node in wf.values()
+            if isinstance(node, dict)
+            and (class_type := node.get("class_type"))
+            and class_type not in object_info
+        }
+    )
+    if not missing:
+        return
+    hint = ""
+    if any(name.startswith("MiniMaxH3") for name in missing):
+        version = "unknown"
+        try:
+            stats = httpx.get(f"{_comfy_base()}/system_stats", timeout=10).json()
+            version = stats.get("system", {}).get("comfyui_version") or version
+        except Exception:
+            pass
+        hint = (
+            f" MiniMax H3 is built into ComfyUI 0.30+; this engine is {version}."
+            " Update ComfyUI on the GPU PC, then retry."
+        )
+    raise RuntimeError("ComfyUI is missing nodes: " + ", ".join(missing) + hint)
 
 
 def to_api_workflow(workflow: dict) -> dict:
     wf = ui_to_api_format(workflow) if is_ui_format(workflow) else dict(workflow)
-    sanitize_model_paths(wf)
+    resolve_combo_values(wf)
     return wf
 
 
@@ -413,11 +495,28 @@ def inject_minimax(image_name: str, prompt: str) -> dict:
         seed = node.get("inputs", {}).get("noise_seed")
         if isinstance(seed, (int, float)):
             node["inputs"]["noise_seed"] = random.randint(0, 2**32 - 1)
+    assert_nodes_installed(wf)
     return wf
 
 
 # Filenames from the GPU ComfyUI error list (this machine does not have the
 # Lightning 4-step pack the exported graph named).
+WAN_T2V_FPS = 16
+WAN_T2V_DEFAULT_SECONDS = 5
+WAN_T2V_LENGTH_BY_SECONDS = {
+    2: 33,
+    4: 65,
+    5: 81,
+    8: 129,
+}
+WAN_T2V_DEFAULT_SIZE = "832x480"
+WAN_T2V_SIZES = {
+    "640x384": (640, 384),
+    "832x480": (832, 480),
+    "1024x576": (1024, 576),
+    "1280x720": (1280, 720),
+}
+
 _WAN_T2V_MODEL_REMAP = {
     "vae_name": {
         "wan_2.1_vae.safetensors": "Wan2_1_VAE_bf16.safetensors",
@@ -433,14 +532,77 @@ _WAN_T2V_MODEL_REMAP = {
 }
 
 
-def inject_wan_t2v(prompt: str, negative: str = "") -> dict:
+def wan_t2v_frame_count(seconds: int | None) -> int:
+    return WAN_T2V_LENGTH_BY_SECONDS.get(
+        int(seconds or WAN_T2V_DEFAULT_SECONDS),
+        WAN_T2V_LENGTH_BY_SECONDS[WAN_T2V_DEFAULT_SECONDS],
+    )
+
+
+def wan_t2v_size(size: str | None) -> tuple[int, int]:
+    key = (size or WAN_T2V_DEFAULT_SIZE).strip().lower()
+    return WAN_T2V_SIZES.get(key, WAN_T2V_SIZES[WAN_T2V_DEFAULT_SIZE])
+
+
+def _snap_wan_length(frames: int) -> int:
+    frames = max(5, int(frames))
+    return ((frames - 1) // 4) * 4 + 1
+
+
+def _empty_latent_max_length() -> int:
+    try:
+        spec = (
+            (_fetch_object_info().get("EmptyHunyuanLatentVideo") or {})
+            .get("input", {})
+            .get("required", {})
+            .get("length")
+        )
+        if isinstance(spec, (list, tuple)) and len(spec) > 1 and isinstance(spec[1], dict):
+            return int(spec[1].get("max") or 16384)
+    except Exception:
+        pass
+    return 16384
+
+
+def inject_wan_t2v(
+    prompt: str,
+    negative: str = "",
+    length: int | None = None,
+    width: int | None = None,
+    height: int | None = None,
+    seconds: int | None = None,
+) -> dict:
+    import copy
     import random
 
     text = prompt.strip()
     if not text:
         raise ValueError("Wan T2V prompt is empty")
 
-    wf = to_api_workflow(load_workflow_file(settings.comfyui_wan_t2v_workflow_path))
+    duration = (
+        seconds
+        if isinstance(seconds, int) and seconds > 0
+        else WAN_T2V_DEFAULT_SECONDS
+    )
+    frames = (
+        length
+        if isinstance(length, int) and length >= 5
+        else wan_t2v_frame_count(duration)
+    )
+    frames = _snap_wan_length(frames)
+    cap = _empty_latent_max_length()
+    fps = float(WAN_T2V_FPS)
+    if frames > cap:
+        frames = _snap_wan_length(min(frames, cap))
+        fps = max(1.0, frames / duration)
+        logger.warning(
+            "Wan T2V length capped at %s frames; using %.2f fps for %ss",
+            frames,
+            fps,
+            duration,
+        )
+
+    wf = copy.deepcopy(to_api_workflow(load_workflow_file(settings.comfyui_wan_t2v_workflow_path)))
     positive = wf.get("6")
     if not isinstance(positive, dict) or positive.get("class_type") != "CLIPTextEncode":
         raise KeyError("Positive CLIPTextEncode node 6 not found in Wan T2V workflow")
@@ -484,12 +646,24 @@ def inject_wan_t2v(prompt: str, negative: str = "") -> dict:
     for node_id in ("37", "54", "57"):
         wf.pop(node_id, None)
 
-    latent = wf.get("59")
-    if isinstance(latent, dict) and latent.get("class_type") == "EmptyHunyuanLatentVideo":
-        inputs = latent.setdefault("inputs", {})
-        inputs["width"] = 640
-        inputs["height"] = 384
-        inputs["length"] = 33
+    default_width, default_height = wan_t2v_size(WAN_T2V_DEFAULT_SIZE)
+    out_w = width if isinstance(width, int) and width >= 64 else default_width
+    out_h = height if isinstance(height, int) and height >= 64 else default_height
+    for node in wf.values():
+        if not isinstance(node, dict):
+            continue
+        class_type = node.get("class_type")
+        inputs = node.setdefault("inputs", {})
+        if class_type == "EmptyHunyuanLatentVideo":
+            inputs["width"] = out_w
+            inputs["height"] = out_h
+            inputs["length"] = frames
+        elif class_type == "CreateVideo":
+            inputs["fps"] = fps
+            if "frame_rate" in inputs:
+                inputs["frame_rate"] = fps
+
+    logger.info("Wan T2V %sx%s × %s frames @ %.2f fps (%.1fs)", out_w, out_h, frames, fps, frames / fps)
 
     seed = random.randint(0, 2**32 - 1)
     sampler = wf.get("58")

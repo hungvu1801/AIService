@@ -7,7 +7,7 @@
 </section>
 
 <div class="banner">
-    Same job queue. One 14B UNET only, 640×384, 33 frames. After OOM, fully quit ComfyUI and start it with <code>--lowvram</code> (no <code>--highvram</code>).
+    Same job queue. One 14B UNET only. Higher resolution and longer clips use more VRAM. After OOM, fully quit ComfyUI and start it with <code>--lowvram</code> (no <code>--highvram</code>).
 </div>
 
 <div class="studio-layout">
@@ -21,13 +21,33 @@
             <label for="negativeInput">Negative (optional)</label>
             <textarea id="negativeInput" maxlength="4000" placeholder="Leave empty unless you want a negative prompt."></textarea>
         </div>
+        <div class="field">
+            <label for="durationInput">Duration</label>
+            <select id="durationInput">
+                <option value="2">2 seconds (33 frames)</option>
+                <option value="4">4 seconds (65 frames)</option>
+                <option value="5" selected>5 seconds (81 frames)</option>
+                <option value="8">8 seconds (129 frames)</option>
+            </select>
+        </div>
+        <div class="field">
+            <label for="sizeInput">Resolution</label>
+            <select id="sizeInput">
+                <option value="640x384">640 × 384</option>
+                <option value="832x480" selected>832 × 480</option>
+                <option value="1024x576">1024 × 576</option>
+                <option value="1280x720">1280 × 720 (more VRAM)</option>
+            </select>
+        </div>
     </div>
 
     <aside class="panel run-card">
         <h2>Run</h2>
         <p class="hint">Injects your text into CLIP Text Encode, randomizes the sampler seed, then submits the API graph.</p>
         <div class="run-summary">
-            Prompt: <strong id="promptStatus">empty</strong>
+            Prompt: <strong id="promptStatus">empty</strong><br>
+            Length: <strong id="durationStatus">5 seconds</strong><br>
+            Size: <strong id="sizeStatus">832 × 480</strong>
         </div>
         <button class="btn btn-primary btn-lg" id="runBtn" type="button" disabled>Run</button>
     </aside>

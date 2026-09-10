@@ -16,10 +16,17 @@ from app.core.models import Job
 from app.core.schemas import JobResponse
 from app.engine import comfy
 from app.engine.worker import job_upload_dir, new_job_id
+from app.engine.workflow_convert import (
+    WAN_T2V_LENGTH_BY_SECONDS,
+    WAN_T2V_SIZES,
+    wan_t2v_frame_count,
+    wan_t2v_size,
+)
 
 router = APIRouter()
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
+_RETRYABLE = frozenset({"failed", "cancelled"})
 
 
 def _to_response(job: Job) -> JobResponse:
@@ -39,6 +46,20 @@ def _to_response(job: Job) -> JobResponse:
 def _safe_filename(name: str, fallback: str) -> str:
     cleaned = _SAFE_NAME.sub("_", Path(name or fallback).name).strip("._")
     return cleaned or fallback
+
+
+def _inputs_exist(job: Job) -> bool:
+    image = Path(job.image_path) if job.image_path else None
+    video = Path(job.video_path) if job.video_path else None
+    if job.tool == "motion_transfer":
+        return bool(image and video and image.is_file() and video.is_file())
+    if job.tool == "animatediff":
+        return bool(video and video.is_file())
+    if job.tool == "minimax":
+        return bool(image and video and image.is_file() and video.is_file())
+    if job.tool == "wan_t2v":
+        return bool(video and video.is_file())
+    return False
 
 
 async def _read_limited(upload: UploadFile, limit: int) -> bytes:
@@ -156,12 +177,24 @@ async def create_wan_t2v_job(
     db: Annotated[AsyncSession, Depends(get_db)],
     prompt: Annotated[str, Form()],
     negative: Annotated[str, Form()] = "",
+    seconds: Annotated[int, Form()] = 5,
+    size: Annotated[str, Form()] = "832x480",
 ):
     text = (prompt or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Prompt is required")
     if len(text) > 16000:
         raise HTTPException(status_code=400, detail="Prompt is too long")
+    if seconds not in WAN_T2V_LENGTH_BY_SECONDS:
+        raise HTTPException(
+            status_code=400,
+            detail="Duration must be 2, 4, 5, or 8 seconds",
+        )
+    if size not in WAN_T2V_SIZES:
+        raise HTTPException(
+            status_code=400,
+            detail="Resolution must be 640x384, 832x480, 1024x576, or 1280x720",
+        )
 
     job_id = new_job_id()
     folder = job_upload_dir(job_id)
@@ -170,7 +203,14 @@ async def create_wan_t2v_job(
     negative_text = (negative or "").strip()
     if negative_text:
         (folder / "negative.txt").write_text(negative_text, encoding="utf-8")
-    label = text.replace("\n", " ")[:80]
+    (folder / "length.txt").write_text(
+        str(wan_t2v_frame_count(seconds)), encoding="utf-8"
+    )
+    width, height = wan_t2v_size(size)
+    (folder / "size.txt").write_text(f"{width}x{height}", encoding="utf-8")
+    (folder / "seconds.txt").write_text(str(seconds), encoding="utf-8")
+    flat = " ".join(text.split())
+    label = f"{seconds}s · {width}x{height} · {flat}"[:80]
 
     job = Job(
         id=job_id,
@@ -229,6 +269,34 @@ async def cancel_job(
         await comfy.interrupt()
     job.status = "cancelled"
     job.error = "Cancelled by user"
+    await db.commit()
+    await db.refresh(job)
+    return _to_response(job)
+
+
+@router.post("/{job_id}/retry", response_model=JobResponse)
+async def retry_job(
+    job_id: str,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    job = await db.get(Job, job_id)
+    if job is None or job.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status not in _RETRYABLE:
+        raise HTTPException(
+            status_code=400,
+            detail="Only failed or cancelled jobs can be retried",
+        )
+    if not _inputs_exist(job):
+        raise HTTPException(
+            status_code=400,
+            detail="Original files are missing. Start a new run from Studio.",
+        )
+    job.status = "queued"
+    job.error = None
+    job.prompt_id = None
+    job.output_path = None
     await db.commit()
     await db.refresh(job)
     return _to_response(job)

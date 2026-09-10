@@ -1,63 +1,42 @@
 {% extends "layout.html" %}
 {% block content %}
-<section class="hero">
-    <div class="hero-kicker">Apps plaza</div>
-    <h1>Create with AI Dancing</h1>
-    <p>Pick a tool, drop a portrait and a dance clip, then hit Run. Same dark studio feel as RunningHub — built for your customers, not their login wall.</p>
+<section class="hero hero-plaza">
+    <div class="hero-kicker">Apps</div>
+    <h1>Workflows</h1>
+    <p>Pick a tool and run it on your ComfyUI — same catalog feel as a workflow plaza, without their login wall.</p>
 </section>
 
 <div class="section-title">
     <h2>Featured apps</h2>
-    <span>4 live</span>
+    <span>{{ live_count }} live</span>
 </div>
 
 <div class="app-grid">
-    <a class="app-card" href="{{ url_for('studio_page') }}">
-        <div class="app-card-media motion"></div>
-        <div class="app-card-body">
-            <h3>Motion Transfer</h3>
-            <p>Put your face on a dance video. Portrait image + reference clip → new video.</p>
-            <div class="app-card-meta">
-                <span class="badge badge-lime">Run</span>
-                <span>WanVideo 14B</span>
+    {% for app in apps %}
+    <a class="app-card{% if not app.is_live %} is-disabled{% endif %}" href="{{ url_for(app.route_name) }}">
+        <div class="app-card-cover {{ app.media_class }}">
+            {% if app.cover_url %}
+            <img class="app-card-photo" src="{{ app.cover_url }}" alt="">
+            {% endif %}
+            <div class="app-card-poster">
+                <span>{{ app.engine_label }}</span>
+                <strong>{{ app.title }}</strong>
+            </div>
+        </div>
+        <div class="app-card-foot">
+            <div class="app-card-foot-title">{{ app.title }}</div>
+            <div class="app-card-foot-meta">
+                <span class="app-card-author">
+                    <span class="app-card-avatar" aria-hidden="true"></span>
+                    @{{ app.author }}
+                </span>
+                <span class="app-card-stars" title="Stars">
+                    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M8 1.4l1.8 3.7 4.1.6-3 2.9.7 4.1L8 11.5 4.4 12.7l.7-4.1-3-2.9 4.1-.6z"/></svg>
+                    {{ app.stars }}
+                </span>
             </div>
         </div>
     </a>
-
-    <a class="app-card" href="{{ url_for('studio_pixel_page') }}">
-        <div class="app-card-media pixel"></div>
-        <div class="app-card-body">
-            <h3>Pixel Art Video</h3>
-            <p>AnimateDiff V2V. Restyle a clip as pixel art on the SD1.5 ComfyUI.</p>
-            <div class="app-card-meta">
-                <span class="badge badge-lime">Run</span>
-                <span>AnimateDiff</span>
-            </div>
-        </div>
-    </a>
-
-    <a class="app-card" href="{{ url_for('studio_minimax_page') }}">
-        <div class="app-card-media outfit"></div>
-        <div class="app-card-body">
-            <h3>MiniMax H3</h3>
-            <p>Still image + prompt → video. MiniMaxH3ImageToVideo on the same engine.</p>
-            <div class="app-card-meta">
-                <span class="badge badge-lime">Run</span>
-                <span>Image to video</span>
-            </div>
-        </div>
-    </a>
-
-    <a class="app-card" href="{{ url_for('studio_wan_page') }}">
-        <div class="app-card-media wan"></div>
-        <div class="app-card-body">
-            <h3>Wan T2V</h3>
-            <p>Text to video. 4-step Lightning Wan 2.2 on this ComfyUI — no image or clip required.</p>
-            <div class="app-card-meta">
-                <span class="badge badge-lime">Run</span>
-                <span>Wan 2.2 · 14B</span>
-            </div>
-        </div>
-    </a>
+    {% endfor %}
 </div>
 {% endblock %}

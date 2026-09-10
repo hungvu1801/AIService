@@ -92,3 +92,18 @@ class JobResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     has_output: bool = False
+
+
+class AppResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    slug: str
+    title: str
+    description: str
+    engine_label: str
+    route_name: str
+    media_class: str
+    badge_label: str
+    is_live: bool
+    sort_order: int

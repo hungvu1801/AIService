@@ -13,9 +13,10 @@ from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core import models  # noqa: F401  — register tables
-from app.core.database import Base, engine
+from app.core.database import AsyncSessionLocal, Base, engine
+from app.core.seed_apps import load_plaza_apps, seed_apps
 from app.engine.worker import data_root, job_worker
-from app.routers import jobs, users
+from app.routers import apps, jobs, users
 
 
 @asynccontextmanager
@@ -24,6 +25,8 @@ async def lifespan(_app: FastAPI):
         try:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+            async with AsyncSessionLocal() as db:
+                await seed_apps(db)
         except Exception as exc:
             print(f"Database not ready (pages still load): {exc}")
 
@@ -41,19 +44,29 @@ templates = Jinja2Templates(directory="templates")
 
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])
+app.include_router(apps.router, prefix="/api/apps", tags=["apps"])
 
 
-def page(request: Request, template: str, title: str, active: str = ""):
+def page(request: Request, template: str, title: str, active: str = "", **extra):
     return templates.TemplateResponse(
         request,
         template,
-        {"title": title, "active": active},
+        {"title": title, "active": active, **extra},
     )
 
 
 @app.get("/", include_in_schema=False, name="home")
 async def home(request: Request):
-    return page(request, "home.html", "Apps", "plaza")
+    plaza_apps = await load_plaza_apps()
+    live_count = sum(1 for item in plaza_apps if item.is_live)
+    return page(
+        request,
+        "home.html",
+        "Apps",
+        "plaza",
+        apps=plaza_apps,
+        live_count=live_count,
+    )
 
 
 @app.get("/studio", include_in_schema=False, name="studio_page")

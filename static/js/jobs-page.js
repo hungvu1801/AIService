@@ -27,6 +27,9 @@ function actions(job) {
   if (job.status === "queued" || job.status === "processing") {
     bits.push(`<button class="btn btn-ghost" data-cancel="${escapeHtml(job.id)}">Cancel</button>`);
   }
+  if (job.status === "failed" || job.status === "cancelled") {
+    bits.push(`<button class="btn btn-ghost" data-retry="${escapeHtml(job.id)}">Retry</button>`);
+  }
   return bits.join(" ");
 }
 
@@ -109,11 +112,28 @@ async function cancelJob(jobId) {
   if (jobs) render(jobs);
 }
 
+async function retryJob(jobId) {
+  const response = await fetch(`/api/jobs/${jobId}/retry`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    showToast(getErrorMessage(error), "error");
+    return;
+  }
+  showToast("Job queued again.", "ok");
+  const jobs = await loadJobs();
+  if (jobs) render(jobs);
+}
+
 list.addEventListener("click", (event) => {
   const downloadId = event.target.closest("[data-download]")?.dataset.download;
   const cancelId = event.target.closest("[data-cancel]")?.dataset.cancel;
+  const retryId = event.target.closest("[data-retry]")?.dataset.retry;
   if (downloadId) downloadJob(downloadId);
   if (cancelId) cancelJob(cancelId);
+  if (retryId) retryJob(retryId);
 });
 
 const user = await getCurrentUser();
