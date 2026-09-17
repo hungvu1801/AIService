@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="hero">
+    <div class="hero-kicker">Studio</div>
+    <h1>{{ studio.title }}</h1>
+    <p>{{ studio.description }}</p>
+</section>
+
+<div class="banner">
+    {{ studio.hint }}
+</div>
+
+<div class="studio-layout">
+    <div class="panel">
+        <h2>Inputs</h2>
+        {% if studio.needs_image and studio.needs_image2 %}
+        <div class="input-grid">
+            <label class="dropzone" id="imageDrop">
+                <input id="imageInput" type="file" accept="image/*">
+                <img id="imagePreview" class="preview" alt="{{ studio.image_label }} preview">
+                <div class="dropzone-empty" id="imageEmpty">
+                    <strong>{{ studio.image_label }}</strong>
+                    Drop an image here, or click to browse
+                </div>
+            </label>
+            <label class="dropzone" id="image2Drop">
+                <input id="image2Input" type="file" accept="image/*">
+                <img id="image2Preview" class="preview" alt="{{ studio.image2_label }} preview">
+                <div class="dropzone-empty" id="image2Empty">
+                    <strong>{{ studio.image2_label }}</strong>
+                    Drop an image here, or click to browse
+                </div>
+            </label>
+        </div>
+        {% elif studio.needs_image %}
+        <label class="dropzone dropzone-wide" id="imageDrop">
+            <input id="imageInput" type="file" accept="image/*">
+            <img id="imagePreview" class="preview" alt="{{ studio.image_label }} preview">
+            <div class="dropzone-empty" id="imageEmpty">
+                <strong>{{ studio.image_label }}</strong>
+                Drop an image here, or click to browse
+            </div>
+        </label>
+        {% endif %}
+
+        {% if studio.needs_audio %}
+        <label class="dropzone dropzone-audio" id="audioDrop" style="margin-top: 14px;">
+            <input id="audioInput" type="file" accept="audio/*">
+            <audio id="audioPreview" class="preview preview-audio" controls></audio>
+            <div class="dropzone-empty" id="audioEmpty">
+                <strong>{{ studio.audio_label }}</strong>
+                Drop an audio file here, or click to browse
+            </div>
+        </label>
+        {% endif %}
+
+        {% if studio.needs_prompt %}
+        <div class="field" style="margin-top: 16px;">
+            <label for="promptInput">{{ studio.prompt_label }}</label>
+            <textarea id="promptInput" class="prompt-tall" maxlength="16000" placeholder="{{ studio.prompt_placeholder }}"></textarea>
+        </div>
+        {% endif %}
+
+        {% if studio.needs_extra %}
+        <div class="field" style="margin-top: 16px;">
+            <label for="extraInput">{{ studio.extra_label }}</label>
+            <input id="extraInput" type="text" maxlength="200" placeholder="{{ studio.extra_placeholder }}">
+        </div>
+        {% endif %}
+
+        {% if studio.needs_negative %}
+        <div class="field" style="margin-top: 16px;">
+            <label for="negativeInput">{{ studio.negative_label }}</label>
+            <textarea id="negativeInput" maxlength="4000" placeholder="{{ studio.negative_placeholder }}"></textarea>
+        </div>
+        {% endif %}
+    </div>
+
+    <aside class="panel run-card">
+        <h2>Run</h2>
+        <p class="hint">Same job queue as the other apps. This graph is the one you added under Workflows.</p>
+        <div class="run-summary" id="runSummary"></div>
+        <button class="btn btn-primary btn-lg" id="runBtn" type="button" disabled>Run</button>
+    </aside>
+</div>
+<script id="studioConfig" type="application/json">{{ studio | tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="{{ url_for('static', path='js/studio-app.js') }}"></script>
+{% endblock %}

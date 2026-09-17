@@ -2,7 +2,7 @@ import asyncio
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exception_handlers import (
     http_exception_handler,
     request_validation_exception_handler,
@@ -16,6 +16,7 @@ from app.core import models  # noqa: F401  — register tables
 from app.core.database import AsyncSessionLocal, Base, engine
 from app.core.seed_apps import load_plaza_apps, seed_apps
 from app.engine.worker import data_root, job_worker
+from app.engine.workflow_apps import get_catalog_app
 from app.routers import apps, jobs, users
 
 
@@ -87,6 +88,20 @@ async def studio_minimax_page(request: Request):
 @app.get("/studio/wan", include_in_schema=False, name="studio_wan_page")
 async def studio_wan_page(request: Request):
     return page(request, "studio_wan.html", "Wan T2V", "studio")
+
+
+@app.get("/studio/app/{slug}", include_in_schema=False, name="studio_app_page")
+async def studio_app_page(request: Request, slug: str):
+    spec = get_catalog_app(slug)
+    if spec is None:
+        raise HTTPException(status_code=404, detail="App not found")
+    return page(
+        request,
+        "studio_app.html",
+        spec.title,
+        "studio",
+        studio=spec.public_dict(),
+    )
 
 
 @app.get("/jobs", include_in_schema=False, name="jobs_page")

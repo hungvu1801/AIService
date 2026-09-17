@@ -557,7 +557,11 @@ def _empty_latent_max_length() -> int:
             .get("required", {})
             .get("length")
         )
-        if isinstance(spec, (list, tuple)) and len(spec) > 1 and isinstance(spec[1], dict):
+        if (
+            isinstance(spec, (list, tuple))
+            and len(spec) > 1
+            and isinstance(spec[1], dict)
+        ):
             return int(spec[1].get("max") or 16384)
     except Exception:
         pass
@@ -580,9 +584,7 @@ def inject_wan_t2v(
         raise ValueError("Wan T2V prompt is empty")
 
     duration = (
-        seconds
-        if isinstance(seconds, int) and seconds > 0
-        else WAN_T2V_DEFAULT_SECONDS
+        seconds if isinstance(seconds, int) and seconds > 0 else WAN_T2V_DEFAULT_SECONDS
     )
     frames = (
         length
@@ -602,14 +604,19 @@ def inject_wan_t2v(
             duration,
         )
 
-    wf = copy.deepcopy(to_api_workflow(load_workflow_file(settings.comfyui_wan_t2v_workflow_path)))
+    wf = copy.deepcopy(
+        to_api_workflow(load_workflow_file(settings.comfyui_wan_t2v_workflow_path))
+    )
     positive = wf.get("6")
     if not isinstance(positive, dict) or positive.get("class_type") != "CLIPTextEncode":
         raise KeyError("Positive CLIPTextEncode node 6 not found in Wan T2V workflow")
     positive.setdefault("inputs", {})["text"] = text
 
     negative_node = wf.get("7")
-    if isinstance(negative_node, dict) and negative_node.get("class_type") == "CLIPTextEncode":
+    if (
+        isinstance(negative_node, dict)
+        and negative_node.get("class_type") == "CLIPTextEncode"
+    ):
         negative_node.setdefault("inputs", {})["text"] = negative.strip()
 
     for node in wf.values():
@@ -663,7 +670,14 @@ def inject_wan_t2v(
             if "frame_rate" in inputs:
                 inputs["frame_rate"] = fps
 
-    logger.info("Wan T2V %sx%s × %s frames @ %.2f fps (%.1fs)", out_w, out_h, frames, fps, frames / fps)
+    logger.info(
+        "Wan T2V %sx%s × %s frames @ %.2f fps (%.1fs)",
+        out_w,
+        out_h,
+        frames,
+        fps,
+        frames / fps,
+    )
 
     seed = random.randint(0, 2**32 - 1)
     sampler = wf.get("58")

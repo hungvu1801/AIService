@@ -12,6 +12,11 @@ from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.core.models import Job
 from app.engine import comfy
+from app.engine.workflow_apps import (
+    inject_catalog_app,
+    is_catalog_app,
+    sidecar_file,
+)
 from app.engine.workflow_convert import (
     inject_animatediff,
     inject_minimax,
@@ -68,6 +73,7 @@ async def process_job(job_id: str) -> None:
                         job.prompt_id,
                         dest,
                         prefer_prefixes=comfy.prefer_for_tool(job.tool),
+                        prefer_video=comfy.prefers_video(job.tool),
                     )
                 await db.refresh(job)
                 if job.status == "cancelled":
@@ -149,6 +155,41 @@ async def process_job(job_id: str) -> None:
                 workflow = await asyncio.to_thread(
                     inject_motion, load_workflow(), image_name, video_name
                 )
+            elif is_catalog_app(job.tool):
+                folder = job_upload_dir(job.id)
+                image_name = None
+                if job.image_path and Path(job.image_path).is_file():
+                    image_name = await comfy.upload_input(Path(job.image_path))
+                image2_path = sidecar_file(folder, "image2")
+                image2_name = (
+                    await comfy.upload_input(image2_path) if image2_path else None
+                )
+                audio_path = sidecar_file(folder, "audio")
+                audio_name = (
+                    await comfy.upload_input(audio_path) if audio_path else None
+                )
+                prompt = ""
+                prompt_file = folder / "prompt.txt"
+                if prompt_file.is_file():
+                    prompt = prompt_file.read_text(encoding="utf-8")
+                negative = ""
+                negative_file = folder / "negative.txt"
+                if negative_file.is_file():
+                    negative = negative_file.read_text(encoding="utf-8")
+                extra = ""
+                extra_file = folder / "extra.txt"
+                if extra_file.is_file():
+                    extra = extra_file.read_text(encoding="utf-8")
+                workflow = await asyncio.to_thread(
+                    inject_catalog_app,
+                    job.tool,
+                    image_name=image_name,
+                    image2_name=image2_name,
+                    audio_name=audio_name,
+                    prompt=prompt,
+                    negative=negative,
+                    extra=extra,
+                )
             else:
                 raise ValueError(f"Unknown job tool: {job.tool}")
 
@@ -160,6 +201,7 @@ async def process_job(job_id: str) -> None:
                 prompt_id,
                 dest,
                 prefer_prefixes=comfy.prefer_for_tool(job.tool),
+                prefer_video=comfy.prefers_video(job.tool),
             )
             await db.refresh(job)
             if job.status == "cancelled":

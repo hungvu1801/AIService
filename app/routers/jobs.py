@@ -16,6 +16,11 @@ from app.core.models import Job
 from app.core.schemas import JobResponse
 from app.engine import comfy
 from app.engine.worker import job_upload_dir, new_job_id
+from app.engine.workflow_apps import (
+    catalog_inputs_exist,
+    get_catalog_app,
+    is_catalog_app,
+)
 from app.engine.workflow_convert import (
     WAN_T2V_LENGTH_BY_SECONDS,
     WAN_T2V_SIZES,
@@ -59,6 +64,10 @@ def _inputs_exist(job: Job) -> bool:
         return bool(image and video and image.is_file() and video.is_file())
     if job.tool == "wan_t2v":
         return bool(video and video.is_file())
+    if is_catalog_app(job.tool):
+        return catalog_inputs_exist(
+            job.id, job.tool, job.image_path or "", job.video_path or ""
+        )
     return False
 
 
@@ -220,6 +229,87 @@ async def create_wan_t2v_job(
         image_path="",
         video_path=str(prompt_path),
         image_name="-",
+        video_name=label,
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+    return _to_response(job)
+
+
+@router.post("/app/{slug}", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
+async def create_catalog_job(
+    slug: str,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    image: Annotated[UploadFile | None, File()] = None,
+    image2: Annotated[UploadFile | None, File()] = None,
+    audio: Annotated[UploadFile | None, File()] = None,
+    prompt: Annotated[str, Form()] = "",
+    negative: Annotated[str, Form()] = "",
+    extra: Annotated[str, Form()] = "",
+):
+    spec = get_catalog_app(slug)
+    if spec is None:
+        raise HTTPException(status_code=404, detail="App not found")
+
+    text = (prompt or "").strip()
+    if spec.needs_prompt and not spec.prompt_optional and not text:
+        raise HTTPException(status_code=400, detail="Prompt is required")
+    if len(text) > 16000:
+        raise HTTPException(status_code=400, detail="Prompt is too long")
+    if spec.needs_image and image is None:
+        raise HTTPException(status_code=400, detail="Image is required")
+    if spec.needs_image2 and not spec.image2_optional and image2 is None:
+        raise HTTPException(status_code=400, detail="Reference image is required")
+    if spec.needs_audio and audio is None:
+        raise HTTPException(status_code=400, detail="Audio is required")
+
+    job_id = new_job_id()
+    folder = job_upload_dir(job_id)
+    image_path = ""
+    image_name = "-"
+    if image is not None:
+        image_bytes = await _read_limited(image, settings.max_upload_size_bytes)
+        image_name = _safe_filename(image.filename or "image.png", "image.png")
+        stored = folder / image_name
+        stored.write_bytes(image_bytes)
+        image_path = str(stored)
+    if image2 is not None:
+        image2_bytes = await _read_limited(image2, settings.max_upload_size_bytes)
+        suffix = Path(image2.filename or "image.png").suffix or ".png"
+        (folder / f"image2{suffix}").write_bytes(image2_bytes)
+    if audio is not None:
+        audio_bytes = await _read_limited(audio, settings.max_video_upload_bytes)
+        suffix = Path(audio.filename or "audio.mp3").suffix or ".mp3"
+        (folder / f"audio{suffix}").write_bytes(audio_bytes)
+
+    prompt_path = folder / "prompt.txt"
+    prompt_path.write_text(text, encoding="utf-8")
+    negative_text = (negative or "").strip()
+    if negative_text:
+        (folder / "negative.txt").write_text(negative_text, encoding="utf-8")
+    extra_text = (extra or "").strip()
+    if extra_text:
+        (folder / "extra.txt").write_text(extra_text, encoding="utf-8")
+
+    label_parts: list[str] = []
+    if image_name != "-":
+        label_parts.append(image_name)
+    if audio is not None:
+        label_parts.append(_safe_filename(audio.filename or "audio.mp3", "audio.mp3"))
+    if text:
+        label_parts.append(" ".join(text.split())[:80])
+    label = " · ".join(label_parts)[:80] or spec.title
+
+    job = Job(
+        id=job_id,
+        user_id=current_user.id,
+        tool=spec.slug,
+        status="queued",
+        image_path=image_path,
+        video_path=str(prompt_path),
+        image_name=image_name,
         video_name=label,
     )
     db.add(job)

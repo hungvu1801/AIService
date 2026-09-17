@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 
 from sqlalchemy import select
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
 from app.core.models import App
+from app.engine.workflow_apps import catalog_seed_rows
 
 # Inserted only when the slug is missing. Later edits in the DB are kept.
 SEED_APPS: list[dict] = [
@@ -55,6 +57,7 @@ SEED_APPS: list[dict] = [
         "is_live": True,
         "sort_order": 40,
     },
+    *catalog_seed_rows(),
 ]
 
 
@@ -82,7 +85,11 @@ def _as_plaza_card(row: object) -> SimpleNamespace:
         sort_order=getattr(row, "sort_order", 0),
         author=getattr(row, "author", None) or "aidancing",
         stars=int(getattr(row, "stars", 0) or 0),
-        cover_url=f"/static/plaza/{slug}.png" if slug else "",
+        cover_url=(
+            f"/static/plaza/{slug}.png"
+            if slug and (Path("static/plaza") / f"{slug}.png").is_file()
+            else ""
+        ),
     )
 
 

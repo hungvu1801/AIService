@@ -546,6 +546,17 @@ video {
   display: block;
 }
 
+.dropzone-audio {
+  min-height: 140px;
+  aspect-ratio: auto;
+  max-width: 560px;
+}
+
+.preview-audio {
+  pointer-events: auto;
+  height: auto;
+}
+
 .run-card .hint {
   color: var(--text-muted);
   font-size: 13px;

@@ -13,7 +13,7 @@
 
 <div class="app-grid">
     {% for app in apps %}
-    <a class="app-card{% if not app.is_live %} is-disabled{% endif %}" href="{{ url_for(app.route_name) }}">
+    <a class="app-card{% if not app.is_live %} is-disabled{% endif %}" href="{% if app.route_name == 'studio_app_page' %}{{ url_for('studio_app_page', slug=app.slug) }}{% else %}{{ url_for(app.route_name) }}{% endif %}">
         <div class="app-card-cover {{ app.media_class }}">
             {% if app.cover_url %}
             <img class="app-card-photo" src="{{ app.cover_url }}" alt="">

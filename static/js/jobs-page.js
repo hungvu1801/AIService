@@ -4,12 +4,15 @@ import { escapeHtml, formatDate, getErrorMessage, showToast } from "/static/js/u
 const empty = document.getElementById("jobsEmpty");
 const list = document.getElementById("jobsList");
 
+const toolTitles = {
+  animatediff: "Pixel Art Video",
+  motion_transfer: "Motion Transfer",
+  minimax: "MiniMax H3",
+  wan_t2v: "Wan T2V",
+};
+
 function toolLabel(tool) {
-  if (tool === "animatediff") return "Pixel Art Video";
-  if (tool === "motion_transfer") return "Motion Transfer";
-  if (tool === "minimax") return "MiniMax H3";
-  if (tool === "wan_t2v") return "Wan T2V";
-  return tool.replaceAll("_", " ");
+  return toolTitles[tool] || tool.replaceAll("_", " ");
 }
 
 function badgeClass(status) {
@@ -90,9 +93,12 @@ async function downloadJob(jobId) {
   }
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
+  const disposition = response.headers.get("content-disposition") || "";
+  const match = disposition.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i);
+  const filename = match ? decodeURIComponent(match[1].replace(/"/g, "")) : `${jobId}`;
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${jobId}.mp4`;
+  link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -135,6 +141,17 @@ list.addEventListener("click", (event) => {
   if (cancelId) cancelJob(cancelId);
   if (retryId) retryJob(retryId);
 });
+
+try {
+  const apps = await fetch("/api/apps");
+  if (apps.ok) {
+    for (const item of await apps.json()) {
+      if (item.slug && item.title) toolTitles[item.slug] = item.title;
+    }
+  }
+} catch {
+  /* keep built-in labels */
+}
 
 const user = await getCurrentUser();
 if (!user) {

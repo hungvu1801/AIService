@@ -18,6 +18,7 @@ _SKIP_PREFIXES = (
     "wanvideo2_1_t2v",
 )
 _VIDEO_SUFFIXES = {".mp4", ".webm", ".mov", ".mkv", ".avi", ".gif"}
+_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
 _MOTION_PREFER = ("wananimate_output",)
 _ANIMATEDIFF_PREFER = ("video_",)
 _MINIMAX_PREFER = ("minimax", "video")
@@ -47,6 +48,11 @@ def _prompt_error_message(response: httpx.Response) -> str:
 
 
 def prefer_for_tool(tool: str) -> tuple[str, ...]:
+    from app.engine.workflow_apps import get_catalog_app
+
+    spec = get_catalog_app(tool)
+    if spec and spec.prefer_prefixes:
+        return spec.prefer_prefixes
     if tool == "animatediff":
         return _ANIMATEDIFF_PREFER
     if tool == "minimax":
@@ -54,6 +60,15 @@ def prefer_for_tool(tool: str) -> tuple[str, ...]:
     if tool == "wan_t2v":
         return _WAN_T2V_PREFER
     return _MOTION_PREFER
+
+
+def prefers_video(tool: str) -> bool:
+    from app.engine.workflow_apps import get_catalog_app
+
+    spec = get_catalog_app(tool)
+    if spec:
+        return spec.output_kind == "video"
+    return True
 
 
 async def upload_input(path: Path, base_url: str | None = None) -> str:
@@ -194,8 +209,14 @@ def _is_video_file(item: dict) -> bool:
     return Path(name).suffix in _VIDEO_SUFFIXES
 
 
-def _collect_media(outputs: dict) -> list[dict]:
+def _is_image_file(item: dict) -> bool:
+    name = (item.get("filename") or "").lower()
+    return Path(name).suffix in _IMAGE_SUFFIXES
+
+
+def _collect_media(outputs: dict) -> tuple[list[dict], list[dict]]:
     videos: list[dict] = []
+    images: list[dict] = []
     for node_output in outputs.values():
         if not isinstance(node_output, dict):
             continue
@@ -207,27 +228,56 @@ def _collect_media(outputs: dict) -> list[dict]:
                     continue
                 if key in ("gifs", "videos") or _is_video_file(item):
                     videos.append(item)
-    return videos
+                elif key == "images" or _is_image_file(item):
+                    images.append(item)
+    return videos, images
+
+
+def _rank_pool(pool: list[dict], prefer_prefixes: tuple[str, ...]) -> list[dict]:
+    saved = [item for item in pool if item.get("type") == "output"]
+    use = saved or pool
+    preferred = [
+        item
+        for item in use
+        if any(
+            item.get("filename", "").lower().startswith(prefix.lower())
+            for prefix in prefer_prefixes
+        )
+    ]
+    if preferred:
+        return preferred
+    final = [
+        item
+        for item in use
+        if not any(
+            item.get("filename", "").lower().startswith(prefix)
+            for prefix in _SKIP_PREFIXES
+        )
+    ]
+    return final or use
+
+
+def _pick_output(
+    outputs: dict,
+    prefer_prefixes: tuple[str, ...] = _MOTION_PREFER,
+    *,
+    prefer_video: bool = True,
+) -> dict | None:
+    videos, images = _collect_media(outputs)
+    first, second = (videos, images) if prefer_video else (images, videos)
+    if first:
+        ranked = _rank_pool(first, prefer_prefixes)
+        if ranked:
+            return ranked[-1]
+    if second:
+        ranked = _rank_pool(second, prefer_prefixes)
+        if ranked:
+            return ranked[-1]
+    return None
 
 
 def _pick_video(outputs: dict, prefer_prefixes: tuple[str, ...] = _MOTION_PREFER) -> dict | None:
-    videos = _collect_media(outputs)
-    saved = [item for item in videos if item.get("type") == "output"]
-    pool = saved or videos
-    preferred = [
-        item
-        for item in pool
-        if any(item.get("filename", "").lower().startswith(prefix) for prefix in prefer_prefixes)
-    ]
-    if preferred:
-        return preferred[-1]
-    final = [
-        item
-        for item in pool
-        if not any(item.get("filename", "").lower().startswith(prefix) for prefix in _SKIP_PREFIXES)
-    ]
-    chosen = final or pool
-    return chosen[-1] if chosen else None
+    return _pick_output(outputs, prefer_prefixes, prefer_video=True)
 
 
 async def probe_saved_video(
@@ -263,23 +313,28 @@ async def download_output(
     dest: Path,
     base_url: str | None = None,
     prefer_prefixes: tuple[str, ...] = _MOTION_PREFER,
+    prefer_video: bool = True,
 ) -> Path:
     history = await poll_history(prompt_id, base_url=base_url)
     outputs = history.get("outputs") or {}
-    video = _pick_video(outputs, prefer_prefixes=prefer_prefixes)
-    if not video:
-        raise RuntimeError("ComfyUI finished but returned no video output")
+    media = _pick_output(
+        outputs,
+        prefer_prefixes=prefer_prefixes,
+        prefer_video=prefer_video,
+    )
+    if not media:
+        raise RuntimeError("ComfyUI finished but returned no output")
     logger.info(
         "Downloading ComfyUI output %s (%s)",
-        video.get("filename"),
-        video.get("type"),
+        media.get("filename"),
+        media.get("type"),
     )
-    suffix = Path(video["filename"]).suffix or ".mp4"
+    suffix = Path(media["filename"]).suffix or (".mp4" if prefer_video else ".png")
     dest = dest.with_suffix(suffix)
     await download_file(
-        video["filename"],
-        video.get("subfolder", ""),
-        video.get("type", "output"),
+        media["filename"],
+        media.get("subfolder", ""),
+        media.get("type", "output"),
         dest,
         base_url=base_url,
     )
